@@ -3,6 +3,10 @@ import { Test } from "@nestjs/testing";
 import request from "supertest";
 import { DataSource } from "typeorm";
 import { AppModule } from "../src/app.module";
+import type {
+  BikeResponseDto,
+  GetBikesResponseDto,
+} from "../src/bikes/dto/bike-response.dto";
 import { BikeEntity } from "../src/bikes/entities/bike.entity";
 import { configureApp } from "../src/configure-app";
 import type { PurchasedBikeSellResponseDto } from "../src/customers/dto/bike-sell-response.dto";
@@ -22,6 +26,19 @@ const validCustomer = {
   firstName: "  Zoé  ",
   lastName: "Moreau",
   email: " ZOE@EXAMPLE.COM ",
+};
+const validBike = {
+  brand: "Nova",
+  model: "Gravel 700",
+  description: "Vélo gravel polyvalent",
+  category: "gravel",
+  frameMaterial: "carbone",
+  frameSizeCm: 56,
+  wheelSizeInches: 28,
+  gearCount: 11,
+  weightKg: 9.8,
+  electric: false,
+  priceCents: 159900,
 };
 
 describe("Bike shop API", () => {
@@ -329,9 +346,126 @@ describe("Bike shop API", () => {
     expect(await database.getRepository(BikeEntity).count()).toBe(4);
   });
 
-  it("exposes no bike catalogue routes or Hello World route", async () => {
-    await request(app.getHttpServer()).get("/bikes").expect(404);
-    await request(app.getHttpServer()).post("/bikes").send({}).expect(404);
+  it("exposes no Hello World route", async () => {
     await request(app.getHttpServer()).get("/").expect(404);
+  });
+
+  it("paginates bikes with page and limit", async () => {
+    const all = await request(app.getHttpServer()).get("/bikes").expect(200);
+    const list = all.body as GetBikesResponseDto;
+    expect(list.totalCount).toBe(4);
+    expect(list.bikes.map((bike) => bike.model)).toEqual([
+      "Road 300",
+      "Urban E",
+      "City 100",
+      "Trail 500",
+    ]);
+    const secondPage = await request(app.getHttpServer())
+      .get("/bikes?page=2&limit=3")
+      .expect(200);
+    expect(
+      (secondPage.body as GetBikesResponseDto).bikes.map((bike) => bike.model),
+    ).toEqual(["Trail 500"]);
+    await request(app.getHttpServer())
+      .get("/bikes?page=3&limit=3")
+      .expect(200, { totalCount: 4, bikes: [] });
+    for (const query of [
+      "page=0",
+      "page=-1",
+      "page=1.5",
+      "page=abc",
+      "limit=0",
+      "limit=51",
+      "limit=abc",
+    ]) {
+      await request(app.getHttpServer()).get(`/bikes?${query}`).expect(400);
+    }
+  });
+
+  it("creates, reads, updates and deletes a bike", async () => {
+    const created = await request(app.getHttpServer())
+      .post("/bikes")
+      .send({ ...validBike, brand: "  Nova  " })
+      .expect(201);
+    const bike = created.body as BikeResponseDto;
+    expect(bike).toMatchObject({ ...validBike, brand: "Nova" });
+    expect(bike.id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(Object.keys(bike)).toHaveLength(12);
+    await request(app.getHttpServer())
+      .get(`/bikes/${bike.id}`)
+      .expect(200, bike);
+    const updated = await request(app.getHttpServer())
+      .patch(`/bikes/${bike.id}`)
+      .send({ priceCents: 59900, electric: true })
+      .expect(200);
+    expect(updated.body).toEqual({
+      ...bike,
+      priceCents: 59900,
+      electric: true,
+    });
+    await request(app.getHttpServer()).delete(`/bikes/${bike.id}`).expect(204);
+    await request(app.getHttpServer()).get(`/bikes/${bike.id}`).expect(404);
+  });
+
+  it("validates bike input, unknown fields and empty patches", async () => {
+    for (const invalid of [
+      {},
+      { ...validBike, brand: "   " },
+      { ...validBike, model: 12 },
+      { ...validBike, priceCents: -1 },
+      { ...validBike, priceCents: 10.5 },
+      { ...validBike, gearCount: 0 },
+      { ...validBike, gearCount: 2.5 },
+      { ...validBike, frameSizeCm: 0 },
+      { ...validBike, wheelSizeInches: -28 },
+      { ...validBike, weightKg: "12" },
+      { ...validBike, electric: "yes" },
+      { ...validBike, color: "red" },
+    ]) {
+      await request(app.getHttpServer())
+        .post("/bikes")
+        .send(invalid)
+        .expect(400);
+    }
+    const bikeToUpdate = fixtureIds.bikes[3];
+    await request(app.getHttpServer())
+      .patch(`/bikes/${bikeToUpdate}`)
+      .send({})
+      .expect(400);
+    await request(app.getHttpServer())
+      .patch(`/bikes/${bikeToUpdate}`)
+      .send({ brand: null })
+      .expect(400);
+    await request(app.getHttpServer())
+      .patch(`/bikes/${bikeToUpdate}`)
+      .send({ weightKg: 0 })
+      .expect(400);
+    expect(await database.getRepository(BikeEntity).count()).toBe(4);
+  });
+
+  it("validates UUIDs and reports missing bikes on every route", async () => {
+    for (const [id, status] of [
+      ["not-a-uuid", 400],
+      [missingId, 404],
+    ] as const) {
+      await request(app.getHttpServer()).get(`/bikes/${id}`).expect(status);
+      await request(app.getHttpServer())
+        .patch(`/bikes/${id}`)
+        .send({ priceCents: 1000 })
+        .expect(status);
+      await request(app.getHttpServer()).delete(`/bikes/${id}`).expect(status);
+    }
+  });
+
+  it("refuses to delete a sold bike and keeps its sales", async () => {
+    await request(app.getHttpServer()).delete(`/bikes/${bikeId}`).expect(409);
+    expect(
+      await database.getRepository(BikeEntity).countBy({ id: bikeId }),
+    ).toBe(1);
+    expect(await database.getRepository(BikeSellEntity).count()).toBe(4);
+    // A bike never sold can still be deleted
+    await request(app.getHttpServer())
+      .delete(`/bikes/${fixtureIds.bikes[3]}`)
+      .expect(204);
   });
 });
