@@ -1,4 +1,4 @@
-import { ContactsOutlined, HomeOutlined } from "@ant-design/icons";
+import { ContactsOutlined, HomeOutlined, TagOutlined } from "@ant-design/icons";
 import { Link, useLocation } from "@tanstack/react-router";
 import type { MenuProps } from "antd";
 import { Menu } from "antd";
@@ -17,6 +17,11 @@ const items: MenuItem[] = [
     label: <Link to="/customers">Customers</Link>,
     key: "customers",
     icon: <ContactsOutlined />,
+  },
+  {
+    label: <Link to="/bikes">Bikes</Link>,
+    key: "bikes",
+    icon: <TagOutlined />,
   },
 ];
 

@@ -10,12 +10,24 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as BikesIndexRouteImport } from './routes/bikes/index'
+import { Route as BikesBikeIdRouteImport } from './routes/bikes/$bikeId'
 import { Route as CustomersIndexRouteImport } from './routes/customers/index'
 import { Route as CustomersCustomerIdRouteImport } from './routes/customers/$customerId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BikesIndexRoute = BikesIndexRouteImport.update({
+  id: '/bikes/',
+  path: '/bikes/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BikesBikeIdRoute = BikesBikeIdRouteImport.update({
+  id: '/bikes/$bikeId',
+  path: '/bikes/$bikeId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CustomersIndexRoute = CustomersIndexRouteImport.update({
@@ -31,31 +43,51 @@ const CustomersCustomerIdRoute = CustomersCustomerIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/bikes/$bikeId': typeof BikesBikeIdRoute
   '/customers/$customerId': typeof CustomersCustomerIdRoute
+  '/bikes/': typeof BikesIndexRoute
   '/customers/': typeof CustomersIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/bikes/$bikeId': typeof BikesBikeIdRoute
   '/customers/$customerId': typeof CustomersCustomerIdRoute
+  '/bikes': typeof BikesIndexRoute
   '/customers': typeof CustomersIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/bikes/$bikeId': typeof BikesBikeIdRoute
   '/customers/$customerId': typeof CustomersCustomerIdRoute
+  '/bikes/': typeof BikesIndexRoute
   '/customers/': typeof CustomersIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/customers/$customerId' | '/customers/'
+  fullPaths:
+    | '/'
+    | '/bikes/$bikeId'
+    | '/customers/$customerId'
+    | '/bikes/'
+    | '/customers/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/customers/$customerId' | '/customers'
-  id: '__root__' | '/' | '/customers/$customerId' | '/customers/'
+  to:
+    '/' | '/bikes/$bikeId' | '/customers/$customerId' | '/bikes' | '/customers'
+  id:
+    | '__root__'
+    | '/'
+    | '/bikes/$bikeId'
+    | '/customers/$customerId'
+    | '/bikes/'
+    | '/customers/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  BikesBikeIdRoute: typeof BikesBikeIdRoute
   CustomersCustomerIdRoute: typeof CustomersCustomerIdRoute
+  BikesIndexRoute: typeof BikesIndexRoute
   CustomersIndexRoute: typeof CustomersIndexRoute
 }
 
@@ -66,6 +98,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/bikes/': {
+      id: '/bikes/'
+      path: '/bikes'
+      fullPath: '/bikes/'
+      preLoaderRoute: typeof BikesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/bikes/$bikeId': {
+      id: '/bikes/$bikeId'
+      path: '/bikes/$bikeId'
+      fullPath: '/bikes/$bikeId'
+      preLoaderRoute: typeof BikesBikeIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/customers/': {
@@ -87,7 +133,9 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  BikesBikeIdRoute: BikesBikeIdRoute,
   CustomersCustomerIdRoute: CustomersCustomerIdRoute,
+  BikesIndexRoute: BikesIndexRoute,
   CustomersIndexRoute: CustomersIndexRoute,
 }
 export const routeTree = rootRouteImport
