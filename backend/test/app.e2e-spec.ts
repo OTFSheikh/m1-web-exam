@@ -6,7 +6,10 @@ import { AppModule } from "../src/app.module";
 import { BikeEntity } from "../src/bikes/entities/bike.entity";
 import { configureApp } from "../src/configure-app";
 import type { PurchasedBikeSellResponseDto } from "../src/customers/dto/bike-sell-response.dto";
-import type { CustomerResponseDto } from "../src/customers/dto/customer-response.dto";
+import type {
+  CustomerResponseDto,
+  GetCustomersResponseDto,
+} from "../src/customers/dto/customer-response.dto";
 import { BikeSellEntity } from "../src/customers/entities/bike-sell.entity";
 import { CustomerEntity } from "../src/customers/entities/customer.entity";
 import { databaseOptions } from "../src/database/database-options";
@@ -77,9 +80,14 @@ describe("Bike shop API", () => {
     const all = await request(app.getHttpServer())
       .get("/customers")
       .expect(200);
-    expect(
-      (all.body as CustomerResponseDto[]).map((item) => item.lastName),
-    ).toEqual(["Bernard", "Durand", "Martin", "Moreau"]);
+    const list = all.body as GetCustomersResponseDto;
+    expect(list.totalCount).toBe(4);
+    expect(list.customers.map((item) => item.lastName)).toEqual([
+      "Bernard",
+      "Durand",
+      "Martin",
+      "Moreau",
+    ]);
     await request(app.getHttpServer())
       .patch(`/customers/${customer.id}`)
       .send({ city: "Paris", phone: "0600000000" })
@@ -100,6 +108,41 @@ describe("Bike shop API", () => {
     await request(app.getHttpServer())
       .get(`/customers/${customer.id}`)
       .expect(404);
+  });
+
+  it("paginates customers with page and limit", async () => {
+    const firstPage = await request(app.getHttpServer())
+      .get("/customers?page=1&limit=2")
+      .expect(200);
+    const first = firstPage.body as GetCustomersResponseDto;
+    expect(first.totalCount).toBe(3);
+    expect(first.customers.map((item) => item.lastName)).toEqual([
+      "Bernard",
+      "Durand",
+    ]);
+    const secondPage = await request(app.getHttpServer())
+      .get("/customers?page=2&limit=2")
+      .expect(200);
+    expect(
+      (secondPage.body as GetCustomersResponseDto).customers.map(
+        (item) => item.lastName,
+      ),
+    ).toEqual(["Martin"]);
+    await request(app.getHttpServer())
+      .get("/customers?page=5&limit=2")
+      .expect(200, { totalCount: 3, customers: [] });
+    for (const query of [
+      "page=0",
+      "page=-1",
+      "page=1.5",
+      "page=abc",
+      "limit=0",
+      "limit=51",
+      "limit=abc",
+    ]) {
+      await request(app.getHttpServer()).get(`/customers?${query}`).expect(400);
+    }
+    await request(app.getHttpServer()).get("/customers?limit=50").expect(200);
   });
 
   it("enforces email uniqueness on creation and update", async () => {

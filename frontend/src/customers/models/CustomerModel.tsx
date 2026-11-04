@@ -25,3 +25,9 @@ export type CreateCustomerModel = {
   city?: string;
   country?: string;
 };
+
+// Paginated response of GET /customers
+export type GetCustomersModel = {
+  totalCount: number;
+  customers: CustomerModel[];
+};
